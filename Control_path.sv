@@ -35,7 +35,7 @@ always_ff @(posedge clk125 or negedge areset_n)
 begin
 if(!areset_n)
 	begin
-	address_mem<='0;
+	address_mem<=8'h70;  //cambiado para verificacion hardware
     contador_5_ciclos<='0;
     state1<=G0;
     fin<=1'b0;
