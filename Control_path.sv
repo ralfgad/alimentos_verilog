@@ -11,6 +11,9 @@ output logic fin2,
 output logic [DATA_WIDTH-1:0] incrementado,
 output logic signed [MAGNITUD_WIDTH-1:0] DAC_S_registrado,
 output logic signed[31:0] MODULO,
+output logic signed[31:0] MODULOA,
+output logic signed[31:0] MODULOB,
+output logic [7:0] address_mem,
 output logic signed [31:0] PHASE
 );
 
@@ -21,7 +24,7 @@ enum  logic [1:0] {G0, G1,G1B, G2} state1;
 
 enum logic [2:0] {S0 , S1,  S3,S4} state2;
 
-logic [7:0] address_mem; 
+//logic [7:0] address_mem; 
 logic [2:0] contador_5_ciclos;
 
 //logic [31:0] phase_accumulator;
@@ -166,7 +169,7 @@ logic [2:0] contador_4_ciclosA, contador_4_ciclosB;
 logic [31:0] diferencia_pos, diferencia_neg;
 
 logic signed [MAGNITUD_WIDTH-1:0] MODULO_POSA, MODULO_NEGA;
-logic signed [MAGNITUD_WIDTH-1:0] MODULOA, MODULOB;
+//logic signed [MAGNITUD_WIDTH-1:0] MODULOA, MODULOB;
 logic signed [MAGNITUD_WIDTH-1:0] MODULO_POSB, MODULO_NEGB;
 logic signed     [63:0]                      temporal;
 always_ff@(posedge clk125 or negedge areset_n) 
