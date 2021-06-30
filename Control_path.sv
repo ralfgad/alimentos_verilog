@@ -266,11 +266,22 @@ else
                 begin
                     contador_4_ciclosA<=contador_4_ciclosA+1;
 		            diferencia_pos<='0;
+                    if ((contador_4_ciclosA == ciclos+1) && (contador_4_ciclosB == ciclos+2))
+                        begin
+                            state2<=S0;
+                            fin2<=1'b1;
+                            MODULOA<=(MODULO_POSA-MODULO_NEGA)>>>2;
+                            MODULOB<=(MODULO_POSB-MODULO_NEGB)>>>2;
+                            MODULO<=(((MODULO_POSA-MODULO_NEGA)/(MODULO_POSB-MODULO_NEGB))- 1)*1000;
+                            PHASE<=(temporal>>32);                                                 
+                            //contador_4_ciclosB<='0;
+                        end
                 end	   
 
             if (detectado_cero_B)
                 begin
-                    if (contador_4_ciclosB == ciclos+1)
+                    contador_4_ciclosB<=contador_4_ciclosB+1;                   
+                    if ((contador_4_ciclosB == ciclos+1) && (contador_4_ciclosA == ciclos+2))
                         begin
                             state2<=S0;
                             fin2<=1'b1;
@@ -281,13 +292,11 @@ else
                             //contador_4_ciclosB<='0;
                         end
                 
-		            else if (contador_4_ciclosB == ciclos)
+                     if (contador_4_ciclosB == ciclos)
 			            begin
-                        	contador_4_ciclosB<=contador_4_ciclosB+1;
 			    	        temporal=(diferencia_pos*incrementado*360);				
 			            end 
-                    else
-                        contador_4_ciclosB<=contador_4_ciclosB+1;
+
                 end	     
         end          
 
@@ -306,27 +315,36 @@ else
                 begin
                     contador_4_ciclosB<=contador_4_ciclosB+1;
 		            diferencia_neg<='0;
+                     if ((contador_4_ciclosB == ciclos+1) && (contador_4_ciclosA == ciclos+2) )   
+                        begin
+                            state2<=S0;
+         		            fin2<=1'b1;
+                            MODULOA<=(MODULO_POSA-MODULO_NEGA)>>>2;
+                            MODULOB<=(MODULO_POSB-MODULO_NEGB)>>>2;
+                            MODULO<=(((MODULO_POSA-MODULO_NEGA)/(MODULO_POSB-MODULO_NEGB))- 1)*1000;
+                            PHASE<=(temporal>>32);                             
+                            //contador_4_ciclosA<='0;
+                        end                                     
                 end	
    
             if (detectado_cero_A)
                 begin
-                    if (contador_4_ciclosA==ciclos+1) //esto obliga a dividir por 4 los desfases
+                    contador_4_ciclosA<=contador_4_ciclosA+1;
+                    if ((contador_4_ciclosA==ciclos+1) && (contador_4_ciclosB==ciclos+2)) //esto obliga a dividir por 4 los desfases
                         begin
                             state2<=S0;
-         		    fin2<=1'b1;
+         		            fin2<=1'b1;
                             MODULOA<=(MODULO_POSA-MODULO_NEGA)>>>2;
                             MODULOB<=(MODULO_POSB-MODULO_NEGB)>>>2;
                             MODULO<=(((MODULO_POSA-MODULO_NEGA)/(MODULO_POSB-MODULO_NEGB))- 1)*1000;
                             PHASE<=(temporal>>32);                             
                             //contador_4_ciclosA<='0;
                         end
-		            else if (contador_4_ciclosA == ciclos)
+		            if (contador_4_ciclosA == ciclos)
 			             begin
-                        	contador_4_ciclosA<=contador_4_ciclosA+1;
 			    	        temporal=-(diferencia_neg*incrementado*360);				
 			            end  
-			        else                   
-                    		contador_4_ciclosA<=contador_4_ciclosA+1;
+
                 end	
         end
 
