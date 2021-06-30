@@ -1,0 +1,285 @@
+module control_path
+#(parameter DATA_WIDTH=32, parameter ADDR_WIDTH=8, parameter MAGNITUD_WIDTH=14, parameter ancho_detector=10, parameter FICHERO_INICIAL="freq_log.dat")
+(
+input clk125,
+input clk65,
+input areset_n,
+input start,
+input logic signed [MAGNITUD_WIDTH-1:0] ADC_A,
+input logic signed [MAGNITUD_WIDTH-1:0] ADC_B,
+output logic fin,
+output logic fin2,
+output logic signed [MAGNITUD_WIDTH-1:0] DAC_A,
+output logic signed[31:0] MODULO,
+output logic signed [31:0] PHASE
+);
+
+logic [DATA_WIDTH-1:0] incrementado;
+//generacion
+enum  logic [1:0] {G0, G1, G2, G3} state1;
+
+logic [7:0] address_mem; 
+logic [2:0] contador_5_ciclos;
+
+logic [31:0] phase_accumulator;
+
+
+always_ff @(posedge clk125 or negedge areset_n) 
+begin
+if(!areset_n)
+	begin
+	address_mem<='0;
+    contador_5_ciclos<='0;
+    state1<=G0;
+    fin<=1'b0;
+	end
+else
+	case(state1)
+	G0: 
+        begin
+            fin<=1'b0;
+            if (start) 
+                state1 <= G1;
+        end
+	G1: 	
+            if (ovalid)
+				state1<=G2;	          
+
+	G2:     //NEGATIVO
+            if (DAC_A[MAGNITUD_WIDTH-1]==1'b0)
+                if (contador_5_ciclos>5)
+                    if (address_mem==199)
+                        begin
+                            state1<=G0;
+                            address_mem<='0;
+                            contador_5_ciclos<='0;
+                            fin<=1'b1;
+                        end
+                    else
+                        begin
+
+                            state1 <= G1;
+                            address_mem<=address_mem+1;
+                            contador_5_ciclos<=0;
+                        end
+                else
+                    begin
+                        contador_5_ciclos<=contador_5_ciclos+1;
+                        state1<=G3;
+                    end
+
+    G3:     //POSITIVO
+            if (DAC_A[MAGNITUD_WIDTH-1]==1'b1)
+                state1<=G2;
+
+	endcase
+
+end
+
+//recepcion
+
+
+logic [ancho_detector-1:0] shifterA;
+logic [ancho_detector-1:0] shifterB;
+logic signed [MAGNITUD_WIDTH-1:0] ADC_A_registrado;
+logic signed [MAGNITUD_WIDTH-1:0] ADC_B_registrado;
+logic detectado_cero_A;
+logic detectado_cero_B;
+
+localparam [MAGNITUD_WIDTH-1:0] cero_magnitud='0;
+
+logic [(ancho_detector/2 -1):0][MAGNITUD_WIDTH-1:0] auxA;
+logic [(ancho_detector/2 -1):0][MAGNITUD_WIDTH-1:0] auxB;
+always_ff @(posedge clk65 or negedge areset_n)
+if (!areset_n)
+        auxA<={(ancho_detector/2 -1){cero_magnitud}};
+else
+		auxA<={ADC_A_registrado,auxA[(ancho_detector/2 -1):1]};
+
+assign ADC_A_registrado=auxA[0];
+
+always_ff @(posedge clk65 or negedge areset_n)
+if (!areset_n)
+        auxB<={(ancho_detector/2 -1){cero_magnitud}};
+else
+		auxB<={ADC_B,auxB[(ancho_detector/2 -1):1]};
+
+assign ADC_B_registrado=auxB[0];
+
+
+always_ff @(posedge clk65 or negedge areset_n) 
+begin 
+    if(!areset_n)
+        shifterA<='0;
+    else 
+        shifterA<={ADC_A[MAGNITUD_WIDTH-1], shifterA[ancho_detector-1:1]};
+end
+
+assign detectado_cero_A= (~|shifterA[ancho_detector-1:(ancho_detector/2)]) && (&shifterA[(ancho_detector/2 -1):0]);
+
+always_ff @(posedge clk65 or negedge areset_n) 
+begin 
+    if(!areset_n)
+        shifterB<='0;
+    else 
+        shifterB<={ADC_A[MAGNITUD_WIDTH-1], shifterB[ancho_detector-1:1]};
+
+end
+assign detectado_cero_B= (~|shifterB[ancho_detector-1:(ancho_detector/2)]) && (&shifterB[(ancho_detector/2 -1):0]);
+
+
+enum logic [2:0] {S0 , S1, S2, S3,S4} state2;
+
+
+logic [2:0] contador_4_ciclosA, contador_4_ciclosB;
+logic [31:0] diferencia_pos, diferencia_neg;
+
+logic signed [MAGNITUD_WIDTH-1:0] MODULO_POSA, MODULO_NEGA;
+logic signed [MAGNITUD_WIDTH-1:0] MODULOA, MODULOB;
+logic signed [MAGNITUD_WIDTH-1:0] MODULO_POSB, MODULO_NEGB;
+
+always_ff@(posedge clk65 or negedge areset_n) 
+begin
+if(!areset_n)
+	begin
+    contador_4_ciclosA<='0;
+    state2<=S0;
+    fin2<=1'b0;
+	end
+else
+	case(state2)
+	S0: 
+        begin
+            fin2<=1'b0;
+            diferencia_pos<='0;
+            diferencia_neg<='0;
+            contador_4_ciclosA<='0;
+            contador_4_ciclosB<='0;            
+            if (!ovalid) 
+                state2 <= S1;
+        end
+    S1:      if (ovalid) 
+                state2 <= S2;  
+	S2: 	
+        begin
+            if (detectado_cero_A)
+                begin
+				    state2<=S3;
+                    contador_4_ciclosA<=contador_4_ciclosA+1;
+                    diferencia_pos<=diferencia_pos+1;
+                end	   
+            if (detectado_cero_B)
+                begin
+				    state2<=S4;
+                    contador_4_ciclosB<=contador_4_ciclosB+1;
+                    diferencia_neg<=diferencia_neg+1;
+                end	  
+        end                          
+
+	S3:     //positivo
+        begin
+            if (ADC_A_registrado>  MODULO_POSA)
+                MODULO_POSA<=ADC_A_registrado;
+            if (ADC_A_registrado<  MODULO_NEGA)
+                MODULO_NEGA<=ADC_A_registrado; 
+            if (ADC_B_registrado>  MODULO_POSB)
+                MODULO_POSA<=ADC_A_registrado;
+            if (ADC_B_registrado<  MODULO_NEGB)
+                MODULO_NEGA<=ADC_A_registrado;                                  
+            diferencia_pos<=diferencia_pos+1;
+            if (detectado_cero_A)
+                begin
+                    contador_4_ciclosA<=contador_4_ciclosA+1;
+                end	   
+            if (detectado_cero_B)
+                begin
+                    if (contador_4_ciclosB == 4)
+                        begin
+                            state2<=S0;
+                            fin2<=1'b1;
+                            MODULOA<=(MODULO_POSA-MODULO_NEGA)>>>2;
+                            MODULOB<=(MODULO_POSB-MODULO_NEGB)>>>2;
+                            MODULO<=(((MODULO_POSA-MODULO_NEGA)/(MODULO_POSB-MODULO_NEGB))- 1)*1000;
+                            PHASE<=((diferencia_pos*incrementado*360)>>32);                            
+                            contador_4_ciclosB<='0;
+                        end
+                    else
+                        contador_4_ciclosB<=contador_4_ciclosB+1;
+                end	     
+        end          
+
+    S4:     //negativo
+        begin
+            diferencia_neg <= diferencia_neg +1;
+            if (ADC_A_registrado>  MODULO_POSA)
+                MODULO_POSA<=ADC_A_registrado;
+            if (ADC_A_registrado<  MODULO_NEGA)
+                MODULO_NEGA<=ADC_A_registrado; 
+            if (ADC_B_registrado>  MODULO_POSB)
+                MODULO_POSA<=ADC_A_registrado;
+            if (ADC_B_registrado<  MODULO_NEGB)
+                MODULO_NEGA<=ADC_A_registrado;              
+            if (detectado_cero_B)
+                begin
+                    contador_4_ciclosB<=contador_4_ciclosB+1;
+                end	   
+            if (detectado_cero_A)
+                begin
+                    if (contador_4_ciclosA==4)
+                        begin
+                            state2<=S0;
+                            fin2<=1'b1;
+                            MODULOA<=(MODULO_POSA-MODULO_NEGA)>>>2;
+                            MODULOB<=(MODULO_POSB-MODULO_NEGB)>>>2;
+                            PHASE<=-((diferencia_neg*incrementado*360)>>32);
+                            contador_4_ciclosA<='0;
+                        end
+                    else
+                    contador_4_ciclosA<=contador_4_ciclosA+1;
+                end	
+        end               
+
+	endcase
+
+end
+
+
+
+
+
+
+
+logic ovalid;
+/*
+primera_prueba_nco sin1_source (
+		.clk       (clk125),       // clk.clk
+		.reset_n   (areset_n),   // rst.reset_n
+		.clken     (1'b1),     //  in.clken
+		.phi_inc_i (incrementado), //    .phi_inc_i
+		.fsin_o    (DAC_A),    // out.fsin_o
+		//.fcos_o    (cos_out),		
+		.out_valid (ovalid)  //    .out_valid
+	);
+
+*/
+
+	// Declare the ROM variable
+logic [DATA_WIDTH-1:0] rom[2**ADDR_WIDTH-1:0];
+
+	// Initialize the ROM with $readmemb.  Put the memory contents
+	// in the file single_port_rom_init.txt.  Without this file,
+	// this design will not compile.
+	// See Verilog LRM 1364-2001 Section 17.2.8 for details on the
+	// format of this file.
+
+initial
+	begin
+		$readmemh(FICHERO_INICIAL, rom);
+	end
+
+assign incrementado = rom[address_mem]; //puro combinacional
+	
+
+endmodule
+
+
